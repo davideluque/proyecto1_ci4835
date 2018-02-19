@@ -19,6 +19,9 @@
 #include <netinet/in.h> // AF_INET
 #include <stdio.h> // perror
 #include <stdlib.h> // EXIT_FAILURE
+#include <unistd.h> // close
+#include <iostream> // cout
+#include <arpa/inet.h>  // inet_ntoa
 
 pthread_mutex_t mutex; // prevent race condition on critical sections.
 
@@ -34,10 +37,10 @@ void error(const char *message){
 
 void server(int port_number){
 	int socketfd; // socket file descriptor
-	int new_socket; // new connection socket file descriptor.
+	int new_socketfd; // new connection socket file descriptor
 	struct sockaddr_in server_addr;
 	struct sockaddr_in client_addr;
-
+	socklen_t client_addr_len;
 	/**
 	   create socket with params:
 	     domain -> IPv4 (AF_INET)
@@ -58,6 +61,35 @@ void server(int port_number){
 
 	// port must be converted from integer value into network byte order
 	server_addr.sin_port = htons(port_number);
+
+	// time to bind. bind associates the socket with a port in the local machine
+	if ( bind(socketfd,(struct sockaddr *)&server_addr,sizeof(server_addr)) < 0){
+		error("Error al enlazar el puerto a la conexión (bind)");
+		close(socketfd);
+	}
+
+	// listen to incoming connections. backlog queue size = 5
+	if(listen(socketfd, 5))
+		error("Error al escuchar conexiones entrantes.");
+
+	// server is ready and waiting for connections.
+	while(true){
+		
+		std::cout << "Servidor corriendo en el puerto: " << port_number << "\n";
+		
+		// waiting for new connection
+		if( new_socketfd = accept(socketfd,(struct sockaddr *)&client_addr,&client_addr_len) < 0 )
+			error("Error aceptando la conexion");
+
+		// connection sucessfully accepted 
+		std::cout 
+		<< "Nuevo cliente conectado desde el puerto " << ntohs(client_addr.sin_port) 
+		<< " y direccion IP " << inet_ntoa(client_addr.sin_addr);
+		// a new thread has to be created to handle the new connection
+		pthread_t conn_thread;
+		printf("Enviar a pthread_create con la estructura y el manejador\n");
+		break;
+	}
 
 }
 
