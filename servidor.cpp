@@ -3,7 +3,7 @@
    Departamento de Computación y Tecnología de la Información
    CI4835: Redes I
 
-   Aplicación cliente/servidor mediante sockets.
+   Aplicación servidor mediante sockets.
 
    Comunicación de clientes con tres servidores que ofrecen libros en formato
    PDF. Consulta de oferta de libros de los servidores y solicitud de
@@ -23,7 +23,19 @@
 #include <iostream> // cout
 #include <arpa/inet.h>  // inet_ntoa
 
+using namespace std;
+
 pthread_mutex_t mutex; // prevent race condition on critical sections.
+
+class ConnectionThread {
+	int port;
+public:
+	ConnectionThread(int);	
+};
+
+ConnectionThread::ConnectionThread(int port_number){
+	port = port_number;
+}
 
 /**
    method that shows error message and exit the program when an error occurs.
@@ -35,9 +47,14 @@ void error(const char *message){
 	exit(EXIT_FAILURE);
 }
 
+void *handle_client(void *conn_thread){
+	std::cout << "Bienvenido \n";
+}
+
 void server(int port_number){
 	int socketfd; // socket file descriptor
 	int new_socketfd; // new connection socket file descriptor
+	int rc;
 	struct sockaddr_in server_addr;
 	struct sockaddr_in client_addr;
 	socklen_t client_addr_len;
@@ -81,14 +98,21 @@ void server(int port_number){
 		if( new_socketfd = accept(socketfd,(struct sockaddr *)&client_addr,&client_addr_len) < 0 )
 			error("Error aceptando la conexion");
 
-		// connection sucessfully accepted 
+		// connection successfully accepted 
 		std::cout 
 		<< "Nuevo cliente conectado desde el puerto " << ntohs(client_addr.sin_port) 
 		<< " y direccion IP " << inet_ntoa(client_addr.sin_addr);
+
 		// a new thread has to be created to handle the new connection
 		pthread_t conn_thread;
-		printf("Enviar a pthread_create con la estructura y el manejador\n");
-		break;
+
+		ConnectionThread *ct = new ConnectionThread(port_number);
+
+		rc = pthread_create(&conn_thread, NULL, handle_client, ct);
+
+		if (rc)
+			error("Error creando hilo para manejar la conexión");
+
 	}
 
 }
