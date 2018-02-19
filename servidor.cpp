@@ -119,7 +119,12 @@ void server(int port_number){
 
 int main(int argc, char *argv[]){
 
-	server(65500);
+	if (argc < 2){
+		cout << "usage: server port\n";
+		exit(-1);
+	}
+
+	server(atoi(argv[1]));
 
 	return 0;
 }
