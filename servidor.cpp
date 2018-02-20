@@ -95,19 +95,19 @@ void server(int port_number){
 	if(listen(socketfd, 5) == -1)
 		error("Error al escuchar conexiones entrantes.");
 
+	std::cout << "Servidor corriendo en el puerto " << port_number << "\n";
+	
 	// server is ready and waiting for connections.
 	while(true){
-		
-		std::cout << "Servidor corriendo en el puerto: " << port_number << "\n";
-		
+			
 		// waiting for new connection
 		if( new_socketfd = accept(socketfd,(struct sockaddr *)&client_addr,&client_addr_len) < 0 )
 			error("Error aceptando la conexion");
 
 		// connection successfully accepted 
 		std::cout 
-		<< "Nuevo cliente conectado desde el puerto " << ntohs(client_addr.sin_port) 
-		<< " y direccion IP " << inet_ntoa(client_addr.sin_addr) << "\n";
+		<< "[CONEXIÓN] IP: " << inet_ntoa(client_addr.sin_addr) 
+		<< " - PUERTO: " << ntohs(client_addr.sin_port) << std::endl;
 
 		// a new thread has to be created to handle the new connection
 		pthread_t conn_thread;
