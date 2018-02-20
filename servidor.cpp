@@ -18,10 +18,12 @@
 #include <pthread.h> // pthread_mutex_t
 #include <netinet/in.h> // AF_INET
 #include <stdio.h> // perror
-#include <stdlib.h> // EXIT_FAILURE
+#include <stdlib.h> // EXIT_FAILURE, atoi
 #include <unistd.h> // close
 #include <iostream> // cout
-#include <arpa/inet.h>  // inet_ntoa
+#include <arpa/inet.h>  // sockaddr_in, inet_ntoa
+#include <string.h> // memset
+
 
 using namespace std;
 
@@ -47,16 +49,17 @@ void error(const char *message){
 	exit(EXIT_FAILURE);
 }
 
-void *handle_client(void *conn_thread){
+void* handle_client(void *conn_thread){
 	std::cout << "Bienvenido \n";
 }
 
 void server(int port_number){
 	int socketfd; // socket file descriptor
 	int new_socketfd; // new connection socket file descriptor
-	int rc;
+	int rc; // pthread creation return value
 	struct sockaddr_in server_addr;
 	struct sockaddr_in client_addr;
+	int sockaddr_len = sizeof(struct sockaddr_in);
 	socklen_t client_addr_len;
 	/**
 	   create socket with params:
@@ -70,23 +73,26 @@ void server(int port_number){
 
 	/* server_addr structure must be set to use in bind method call */
 
+   // set bytes of struct to zero
+   memset(&server_addr, 0, sizeof(server_addr));
+
 	// byte order to use -> IPV4
 	server_addr.sin_family = AF_INET;
 
 	// bind the server to the localhost
-	server_addr.sin_addr.s_addr = INADDR_ANY;
+	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	// port must be converted from integer value into network byte order
 	server_addr.sin_port = htons(port_number);
 
 	// time to bind. bind associates the socket with a port in the local machine
-	if ( bind(socketfd,(struct sockaddr *)&server_addr,sizeof(server_addr)) < 0){
+	if ( bind(socketfd,(struct sockaddr *)&server_addr,sockaddr_len) < 0){
 		error("Error al enlazar el puerto a la conexión (bind)");
-		close(socketfd);
+		//close(socketfd);
 	}
 
 	// listen to incoming connections. backlog queue size = 5
-	if(listen(socketfd, 5))
+	if(listen(socketfd, 5) == -1)
 		error("Error al escuchar conexiones entrantes.");
 
 	// server is ready and waiting for connections.
@@ -101,7 +107,7 @@ void server(int port_number){
 		// connection successfully accepted 
 		std::cout 
 		<< "Nuevo cliente conectado desde el puerto " << ntohs(client_addr.sin_port) 
-		<< " y direccion IP " << inet_ntoa(client_addr.sin_addr);
+		<< " y direccion IP " << inet_ntoa(client_addr.sin_addr) << "\n";
 
 		// a new thread has to be created to handle the new connection
 		pthread_t conn_thread;
