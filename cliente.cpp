@@ -33,7 +33,7 @@ void error(const char *message){
 void help(){
   std::cout << "> ESTADO_DESCARGAS: muestra el estado de sus descargas\n";
   std::cout << "> LISTA_LIBROS: muestra el listado de libros disponibles\n";
-  std::cout << "> SOLICITUD <libro>: solicita <libro> desde cualquiera de los servidores disponibles\n";
+  std::cout << "> SOLICITUD <libro>: solicita <libro> desde cualquier servidor disponible\n";
   std::cout << "> LIBROS_DESCARGADOSxSERVIDOR: muestra los libros que ha descargado por servidor\n";
   std::cout << "> SALIR: termina la sesión\n";
   std::cout << "----------------------------------------------------------------------------------\n";
@@ -88,6 +88,7 @@ void cliente(char *ip, int port){
 
    if ((server = gethostbyname(ip)) == NULL){
       printf("No such host is known");
+      close(socketfd);
       exit(-1);
    }
    // bind the client to the host of the server
@@ -96,6 +97,7 @@ void cliente(char *ip, int port){
    if(connect(socketfd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr_in)) < 0){
       printf("Error al conectar con el host\n");
       close(socketfd);
+      exit(-1);
    }
 
    handle_connection();
