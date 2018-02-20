@@ -31,12 +31,20 @@ pthread_mutex_t mutex; // prevent race condition on critical sections.
 
 class ConnectionThread {
 	int port;
+	int new_socketfd;
+
 public:
-	ConnectionThread(int);	
+	ConnectionThread(int, int);
+
+	int get_socket(){
+		return this->new_socketfd;
+	}
+
 };
 
-ConnectionThread::ConnectionThread(int port_number){
+ConnectionThread::ConnectionThread(int port_number, int socket){
 	port = port_number;
+	new_socketfd = socket;
 }
 
 /**
@@ -50,7 +58,11 @@ void error(const char *message){
 }
 
 void* handle_client(void *conn_thread){
-	std::cout << "Bienvenido \n";
+	ConnectionThread *ct = (ConnectionThread *) conn_thread;
+	int new_socketfd = ct->get_socket();
+
+	std::cout << new_socketfd << std::endl;
+	//while((data_len = recv()))
 }
 
 void server(int port_number){
@@ -112,12 +124,11 @@ void server(int port_number){
 		// a new thread has to be created to handle the new connection
 		pthread_t conn_thread;
 
-		ConnectionThread *ct = new ConnectionThread(port_number);
+		ConnectionThread *ct = new ConnectionThread(port_number, new_socketfd);
 
 		rc = pthread_create(&conn_thread, NULL, handle_client, ct);
 
-		if (rc)
-			error("Error creando hilo para manejar la conexión");
+		if (rc) error("Error al crear hilo para manejar la conexión");
 
 	}
 
