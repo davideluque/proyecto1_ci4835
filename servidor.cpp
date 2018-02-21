@@ -58,8 +58,16 @@ void error(const char *message){
 }
 
 void send_list(int socketfd){
-	std::string list = "Hola cliente :)\n";
-	write(socketfd, &list, sizeof(list));
+	
+	char list[1024];
+	int size_list = htonl(sizeof(list));
+
+	memcpy(&list, "Pronto..", sizeof(list));
+	
+	write(socketfd, &size_list, sizeof(size_list));
+
+	write(socketfd, list, sizeof(list));
+
 }
 
 /**
@@ -71,17 +79,10 @@ void* handle_client(void *conn_thread){
 	
 	ConnectionThread *ct = (ConnectionThread *) conn_thread;
 	int new_socketfd = ct->get_socket();
-	int data_len;
+	int data_len, command, command_solicitud;
 	
-	int command;
-	string command_solicitud;
-
-	cout << new_socketfd << endl;
-	data_len = read(new_socketfd, &command, sizeof(command));
-	printf("Lei algo\n");
-	cout << data_len << endl;
-	while(data_len > 0){
-		cout << "recibi algo" << endl;
+	while((data_len = read(new_socketfd, &command, sizeof(command))) > 0){
+			
 		switch(command){
 			case 0:
 				read(new_socketfd, &command_solicitud, sizeof(command_solicitud));
@@ -93,8 +94,12 @@ void* handle_client(void *conn_thread){
 				break;
 			case 3:
 				break;
+			case 4:
+				close(new_socketfd);
+				// Kill thread.
+				break;
 		}
-	
+		
 	}
 
 }
@@ -147,7 +152,12 @@ void server(int port_number){
 
 	std::cout << "Servidor corriendo en el puerto " << port_number << "\n";
 	
-	// server is ready and waiting for connections.
+	/**
+	    Server should create a thread to handle either incomming connections or
+	    console inputs.
+	*/
+
+	// server is ready to wait for connections.
 	while(true){
 			
 		// waiting for new connection

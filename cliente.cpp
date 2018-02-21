@@ -44,7 +44,7 @@ void help(){
 void handle_connection(int socketfd){
   std::string command;
   std::string command_solicitud;
-  int command_num;
+  int command_num, data_size;
 
   std::cout << "Bienvenido" << std::endl;
   std::cout << "Escriba AYUDA si desea conocer la lista de comandos disponibles" << std::endl;
@@ -55,13 +55,18 @@ void handle_connection(int socketfd){
 
     if(command == "AYUDA") help();
     else if (command == "ESTADO_DESCARGAS") write(socketfd, &command_num, sizeof(command));
+   
     else if (command == "LISTA_LIBROS"){
-      std::string book_list;
-      int strlen = htonl(sizeof("HOLA"));
-      std::string holas = "HOLA";
-      write(socketfd, &strlen, sizeof(strlen));
-      write(socketfd, &holas, sizeof(holas));
-      read(socketfd, &book_list, sizeof(book_list));
+      command_num = 1;
+      char book_list[1024];
+
+      write(socketfd, &command_num, sizeof(command_num));
+
+      read(socketfd, &data_size, sizeof(data_size));
+
+      read(socketfd, book_list, ntohl(data_size));
+      
+      std::cout << book_list << std::endl;
     }
     else if (command.find("SOLICITUD") == 0){
       std::cin >> command_solicitud;
@@ -71,6 +76,8 @@ void handle_connection(int socketfd){
      }
     else if (command == "LIBROS_DESCARGADOSxSERVIDOR") write(socketfd, &command_num, sizeof(command));
     else if (command == "SALIR"){
+      command_num = 4;
+      write(socketfd, &command_num, sizeof(command_num));
       close(socketfd);
       exit(1);
     }
@@ -95,7 +102,9 @@ void cliente(char *ip, int port){
    if (socketfd < 0)
       error("Error al crear el socket", socketfd);
 
-   /* client_addr structure must be set to use in bind method call */
+   /** 
+      client_addr structure must be set to use in bind method call
+   */
 
    // set bytes of struct to zero
    memset(&server_addr, 0, sizeof(server_addr));
