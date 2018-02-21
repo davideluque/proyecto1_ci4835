@@ -25,9 +25,11 @@
 #include <unistd.h> // close
 #include <ctype.h> // toupper
 
-void error(const char *message){
+void error(const char *message, int socketfd){
    perror(message);
-   exit(EXIT_FAILURE);
+   close(socketfd);
+   if(EXIT_FAILURE) exit(EXIT_FAILURE);
+   else exit(-1);
 }
 
 void help(){
@@ -39,21 +41,39 @@ void help(){
   std::cout << "----------------------------------------------------------------------------------\n";
 }
 
-void handle_connection(){
+void handle_connection(int socketfd){
   std::string command;
+  std::string command_solicitud;
+  int command_num;
 
-  std::cout << "Bienvenido\n";
-  std::cout << "Para conocer la lista de comandos disponibles, escriba AYUDA\n";
+  std::cout << "Bienvenido" << std::endl;
+  std::cout << "Escriba AYUDA si desea conocer la lista de comandos disponibles" << std::endl;
 
    while(true){
     std::cout << "Escriba el comando que desea ejecutar: ";
     std::cin >> command;
 
     if(command == "AYUDA") help();
-    else if (command == "ESTADO_DESCARGAS") printf("1\n");
-    else if (command == "LISTA_LIBROS") printf("2\n");
-    else if (command == "SOLICITUD libro") printf("3\n");
-    else if (command == "SALIR") exit(1);
+    else if (command == "ESTADO_DESCARGAS") write(socketfd, &command_num, sizeof(command));
+    else if (command == "LISTA_LIBROS"){
+      std::string book_list;
+      int strlen = htonl(sizeof("HOLA"));
+      std::string holas = "HOLA";
+      write(socketfd, &strlen, sizeof(strlen));
+      write(socketfd, &holas, sizeof(holas));
+      read(socketfd, &book_list, sizeof(book_list));
+    }
+    else if (command.find("SOLICITUD") == 0){
+      std::cin >> command_solicitud;
+      std::cout << command_solicitud << std::endl;
+      write(socketfd, &command_num, sizeof(command));
+      write(socketfd, &command_solicitud, sizeof(command));
+     }
+    else if (command == "LIBROS_DESCARGADOSxSERVIDOR") write(socketfd, &command_num, sizeof(command));
+    else if (command == "SALIR"){
+      close(socketfd);
+      exit(1);
+    }
     else std::cout << "Comando inválido. Ejecute AYUDA si desea conocer la lista de comandos.\n";
 
    }   
@@ -73,7 +93,7 @@ void cliente(char *ip, int port){
    */ 
    socketfd = socket(AF_INET, SOCK_STREAM, 0);
    if (socketfd < 0)
-      error("Error al crear el socket");
+      error("Error al crear el socket", socketfd);
 
    /* client_addr structure must be set to use in bind method call */
 
@@ -87,20 +107,19 @@ void cliente(char *ip, int port){
    server_addr.sin_port = htons(port);
 
    if ((server = gethostbyname(ip)) == NULL){
-      printf("No such host is known");
-      close(socketfd);
-      exit(-1);
+    std::cout << "No se pudo obtener el host" << std::endl;
+    close(socketfd);
+    exit(-1);
    }
+
    // bind the client to the host of the server
    memcpy((char *)&client_addr.sin_addr.s_addr, (char *)server->h_addr, sizeof(server->h_length));
 
    if(connect(socketfd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr_in)) < 0){
-      printf("Error al conectar con el host\n");
-      close(socketfd);
-      exit(-1);
+      error("Host inalcanzable", socketfd);
    }
 
-   handle_connection();
+   handle_connection(socketfd);
 }
 
 int main(int argc, char *argv[]){
@@ -111,5 +130,6 @@ int main(int argc, char *argv[]){
    }
 
    cliente(argv[1], atoi(argv[2]));
+   
    return 0;
 }

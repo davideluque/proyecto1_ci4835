@@ -57,22 +57,61 @@ void error(const char *message){
 	exit(EXIT_FAILURE);
 }
 
-void* handle_client(void *conn_thread){
-	ConnectionThread *ct = (ConnectionThread *) conn_thread;
-	int new_socketfd = ct->get_socket();
-
-	std::cout << new_socketfd << std::endl;
-	//while((data_len = recv()))
+void send_list(int socketfd){
+	std::string list = "Hola cliente :)\n";
+	write(socketfd, &list, sizeof(list));
 }
 
+/**
+   method executed by thread
+
+   @param conn_thread 
+*/
+void* handle_client(void *conn_thread){
+	
+	ConnectionThread *ct = (ConnectionThread *) conn_thread;
+	int new_socketfd = ct->get_socket();
+	int data_len;
+	
+	int command;
+	string command_solicitud;
+
+	cout << new_socketfd << endl;
+	data_len = read(new_socketfd, &command, sizeof(command));
+	printf("Lei algo\n");
+	cout << data_len << endl;
+	while(data_len > 0){
+		cout << "recibi algo" << endl;
+		switch(command){
+			case 0:
+				read(new_socketfd, &command_solicitud, sizeof(command_solicitud));
+				break;
+			case 1:
+				send_list(new_socketfd);
+				break;
+			case 2:
+				break;
+			case 3:
+				break;
+		}
+	
+	}
+
+}
+
+/**
+   initializes local server listening on port_number
+
+   @param port_number
+*/
 void server(int port_number){
 	int socketfd; // socket file descriptor
 	int new_socketfd; // new connection socket file descriptor
 	int rc; // pthread creation return value
 	struct sockaddr_in server_addr;
 	struct sockaddr_in client_addr;
-	int sockaddr_len = sizeof(struct sockaddr_in);
-	socklen_t client_addr_len;
+	socklen_t client_addr_len = sizeof(struct sockaddr_in);
+
 	/**
 	   create socket with params:
 	     domain -> IPv4 (AF_INET)
@@ -91,16 +130,15 @@ void server(int port_number){
 	// byte order to use -> IPV4
 	server_addr.sin_family = AF_INET;
 
-	// bind the server to the localhost
-	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
 	// port must be converted from integer value into network byte order
 	server_addr.sin_port = htons(port_number);
 
+	// bind the server to the localhost
+	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
 	// time to bind. bind associates the socket with a port in the local machine
-	if ( bind(socketfd,(struct sockaddr *)&server_addr,sockaddr_len) < 0){
+	if ( bind(socketfd,(struct sockaddr *)&server_addr, client_addr_len) < 0){
 		error("Error al enlazar el puerto a la conexión (bind)");
-		//close(socketfd);
 	}
 
 	// listen to incoming connections. backlog queue size = 5
@@ -113,7 +151,7 @@ void server(int port_number){
 	while(true){
 			
 		// waiting for new connection
-		if( new_socketfd = accept(socketfd,(struct sockaddr *)&client_addr,&client_addr_len) < 0 )
+		if((new_socketfd = accept(socketfd,(struct sockaddr *)&client_addr,&client_addr_len)) < 0 )
 			error("Error aceptando la conexion");
 
 		// connection successfully accepted 
