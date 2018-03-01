@@ -23,11 +23,15 @@
 #include <iostream> // cout
 #include <arpa/inet.h>  // sockaddr_in, inet_ntoa
 #include <string.h> // memset
-
+#include <fstream> // ifstream
+//#include "json.hpp" // json
 
 using namespace std;
+//using json = nlohmann::json;
 
 pthread_mutex_t mutex; // prevent race condition on critical sections.
+
+string BOOKS_LIST; // initialized when reading the file with the list
 
 class ConnectionThread {
 	int port;
@@ -57,16 +61,39 @@ void error(const char *message){
 	exit(EXIT_FAILURE);
 }
 
+ifstream read_txt(){
+	ifstream i("lista.txt");
+	if(i.is_open()){
+		return i;
+	}
+}
+
+void print_txt(){
+	ifstream i = read_txt();
+	string line;
+
+	while( getline(i, line) ){
+		cout << line << endl;
+	}
+	i.close();
+}
+
+// void read_json(){
+// 	ifstream i("example.json");
+// 	if(i.is_open()){
+// 		json j;
+// 		i >> j;
+// 		cout << j << endl;
+// 	}
+// }
+
 void send_list(int socketfd){
 	
-	char list[1024];
-	int size_list = htonl(sizeof(list));
+	// char* list[1024];
 
-	memcpy(&list, "Pronto..", sizeof(list));
+	// memcpy(&list, BOOKS_LIST, sizeof(list));
 	
-	write(socketfd, &size_list, sizeof(size_list));
-
-	write(socketfd, list, sizeof(list));
+	write(socketfd, BOOKS_LIST, sizeof(BOOKS_LIST));
 
 }
 
@@ -182,12 +209,30 @@ void server(int port_number){
 
 }
 
-int main(int argc, char *argv[]){
-
-	if (argc < 2){
-		cout << "usage: server port\n";
+int read_file(char* file){
+	// try to open book list text file
+	ifstream book_list_stream(file);
+	if(!book_list_stream.is_open()){
+		cout << "No se pudo abrir el archivo " << file << endl;
 		exit(-1);
 	}
+
+	string line;
+	// dump into a big string
+	while(getline(book_list_stream, line))
+		BOOKS_LIST = BOOKS_LIST + line + "\n";
+
+	return 1;
+}
+
+int main(int argc, char *argv[]){
+
+	if (argc < 3){
+		cout << "usage: server port book_list_file.txt\n";
+		exit(-1);
+	}
+
+	read_file(argv[2]);
 
 	server(atoi(argv[1]));
 
