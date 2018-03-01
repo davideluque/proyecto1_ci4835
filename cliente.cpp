@@ -80,6 +80,26 @@ Download::Download(std::string book_name, int progress_percent){
   progress = progress_percent;
 }
 
+
+/**
+   initializes the list of servers with given ips and ports.
+
+   @returns Vector of server objects
+*/
+std::vector<Server> init_servers_list(){
+  std::vector <Server> servers;
+
+  Server s1 = Server("127.0.0.1", 8081);
+  Server s2 = Server("127.0.0.1", 8082);
+  Server s3 = Server("127.0.0.1", 8083);
+
+  servers.push_back(s1);
+  servers.push_back(s2);
+  servers.push_back(s3);
+
+  return servers;
+}
+
 void error(const char *message, int socketfd){
    perror(message);
    close(socketfd);
@@ -106,20 +126,70 @@ void print_downloads_status(){
   }  
 }
 
-void print_books_list(int socketfd){
-  int command_num = 1;
-  int ret;
-  std::string buffer;
+int request_book_list(const char *ip, int port){
+ int command_num = 1;
+ int socketfd;
+ struct sockaddr_in client_addr;
+ struct hostent *server;
+ struct sockaddr_in server_addr;
 
-  write(socketfd, &command_num, sizeof(command_num));
+ /**
+    create socket with params:
+      domain -> IPv4 (AF_INET)
+      type -> TCP (SOCK_STREAM)
+      protocol -> IP (0) 
+ */ 
+ socketfd = socket(AF_INET, SOCK_STREAM, 0);
+ if (socketfd < 0)
+    error("Error al crear el socket", socketfd);
 
-  read(socketfd, buffer, sizeof(buffer));
+ /** 
+    client_addr structure must be set to use it in bind method call
+ */
 
-  std::cout << buffer << std::endl;
-  // while((ret = read(socketfd, buf, 32)) > 0){
-  //   printf("%s\n", buf);
-  // }
+ // set bytes of struct to zero
+ memset(&server_addr, 0, sizeof(server_addr));
 
+ // byte order to use -> IPV4
+ server_addr.sin_family = AF_INET;
+
+ // port must be converted from integer value into network byte order
+ server_addr.sin_port = htons(port);
+
+ if ((server = gethostbyname(ip)) == NULL){
+  std::cout << "No se pudo obtener el host" << std::endl;
+  close(socketfd);
+  exit(-1);
+ }
+
+ // bind the client to the host of the server
+ memcpy((char *)&client_addr.sin_addr.s_addr, (char *)server->h_addr, sizeof(server->h_length));
+
+ if(connect(socketfd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr_in)) < 0){
+    std::cout << "Host inalcanzable " << ip << ":" << port << std::endl; 
+    return 0;
+    //error("Host inalcanzable", socketfd);
+ }
+
+ char books_list[1024];
+
+ write(socketfd, &command_num, sizeof(command_num));
+
+ read(socketfd, books_list, sizeof(books_list));
+
+ std::cout << books_list << std::endl;
+
+ close(socketfd);
+
+}
+
+void print_books_list(){
+  std::cout << "-- Los libros disponibles son --" << std::endl;
+
+  std::vector<Server> servers = init_servers_list();
+
+  for (int i = 0; i < 3; ++i)
+  	request_book_list(servers[i].get_ip(), servers[i].get_port());
 }
 
 void handle_connection(int socketfd){
@@ -140,7 +210,7 @@ void handle_connection(int socketfd){
     
     else if (command == "ESTADO_DESCARGAS") print_downloads_status();
    
-    else if (command == "LISTA_LIBROS") print_books_list(socketfd);
+    else if (command == "LISTA_LIBROS") print_books_list();
 
     else if (command.find("SOLICITUD") == 0){
       std::cin >> command_solicitud;
@@ -248,25 +318,6 @@ int connect_to_available_servers(std::vector<Server> servers){
     }
   }
 
-}
-
-/**
-   initializes the list of servers with given ips and ports.
-
-   @returns Vector of server objects
-*/
-std::vector<Server> init_servers_list(){
-  std::vector <Server> servers;
-
-  Server s1 = Server("127.0.0.1", 8081);
-  Server s2 = Server("127.0.0.1", 8082);
-  Server s3 = Server("127.0.0.1", 8083);
-
-  servers.push_back(s1);
-  servers.push_back(s2);
-  servers.push_back(s3);
-
-  return servers;
 }
 
 int main(int argc, char *argv[]){

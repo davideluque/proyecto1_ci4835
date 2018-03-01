@@ -31,7 +31,8 @@ using namespace std;
 
 pthread_mutex_t mutex; // prevent race condition on critical sections.
 
-string BOOKS_LIST; // initialized when reading the file with the list
+string books_list; // initialized when reading the file with the list
+int books_list_size;
 
 class ConnectionThread {
 	int port;
@@ -68,35 +69,10 @@ ifstream read_txt(){
 	}
 }
 
-void print_txt(){
-	ifstream i = read_txt();
-	string line;
-
-	while( getline(i, line) ){
-		cout << line << endl;
-	}
-	i.close();
-}
-
-// void read_json(){
-// 	ifstream i("example.json");
-// 	if(i.is_open()){
-// 		json j;
-// 		i >> j;
-// 		cout << j << endl;
-// 	}
-// }
-
-void send_list(int socketfd){
-	
-	// char* list[1024];
-
-	// memcpy(&list, BOOKS_LIST, sizeof(list));
-	
-	printf("LS:%d\n", sizeof(BOOKS_LIST));
-
-	write(socketfd, BOOKS_LIST.c_str(), sizeof(BOOKS_LIST));
-
+void send_list(int socket){
+	char list[1024];
+	memcpy(&list, books_list.c_str(), sizeof(list));
+	write(socket, list, sizeof(list));	
 }
 
 /**
@@ -125,7 +101,7 @@ void* handle_client(void *conn_thread){
 				break;
 			case 4:
 				close(new_socketfd);
-				// Kill thread.
+				pthread_exit(NULL);
 				break;
 		}
 		
@@ -222,7 +198,9 @@ int read_file(char* file){
 	string line;
 	// dump into a big string
 	while(getline(book_list_stream, line))
-		BOOKS_LIST = BOOKS_LIST + line + "\n";
+		books_list = books_list + line + "\n";
+
+	books_list_size = sizeof(books_list);
 
 	return 1;
 }
