@@ -28,6 +28,7 @@
 
 class Download;
 
+// Global variable
 std::vector <Download> downloads;
 
 class Server{
@@ -100,6 +101,11 @@ std::vector<Server> init_servers_list(){
   return servers;
 }
 
+/**
+   method that shows error message and exit the program when an error occurs.
+
+   @param message -> error message
+*/
 void error(const char *message, int socketfd){
    perror(message);
    close(socketfd);
@@ -107,6 +113,9 @@ void error(const char *message, int socketfd){
    else exit(-1);
 }
 
+/**
+   method that prints commands client options.
+*/
 void help(){
   std::cout << "> ESTADO_DESCARGAS: muestra el estado de sus descargas\n";
   std::cout << "> LISTA_LIBROS: muestra el listado de libros disponibles\n";
@@ -116,6 +125,9 @@ void help(){
   std::cout << "----------------------------------------------------------------------------------\n";
 }
 
+/**
+   method that prints downloads status. It uses a global variable
+*/
 void print_downloads_status(){
 
   if (downloads.size() == 0) std::cout << "[INFORMACIÓN] No hay descargas en curso" << std::endl;
@@ -126,6 +138,11 @@ void print_downloads_status(){
   }  
 }
 
+/**
+   method that makes a request
+
+   @param ip, port
+*/
 int request_book_list(const char *ip, int port){
  int command_num = 1;
  int socketfd;
@@ -183,6 +200,9 @@ int request_book_list(const char *ip, int port){
 
 }
 
+/**
+   method that prints availables books. It uses a global variable
+*/
 void print_books_list(){
   std::cout << "-- Los libros disponibles son --" << std::endl;
 
@@ -192,6 +212,11 @@ void print_books_list(){
   	request_book_list(servers[i].get_ip(), servers[i].get_port());
 }
 
+/**
+   method executed by thread
+
+   @param conn_thread 
+*/
 void handle_connection(int socketfd){
   std::string command;
   std::string command_solicitud;
@@ -230,6 +255,11 @@ void handle_connection(int socketfd){
    }   
 }
 
+/**
+   method that establishes a client-server connection
+
+   @param ip, port 
+*/
 int client(const char *ip, int port){
    int socketfd;
    struct sockaddr_in client_addr;

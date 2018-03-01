@@ -30,42 +30,40 @@
 using namespace std;
 //using json = nlohmann::json;
 
+// Global variables
+std::vector<string> client_list;
+std::vector<string> downloaded_book_list;
+std::vector<std::tuple<int,string,string>> statistics_list;
+
 pthread_mutex_t mutex; // prevent race condition on critical sections.
 
 string books_list; // initialized when reading the file with the list
 int books_list_size;
 
+// struct that manages socket information
 class ConnectionThread {
 	int port;
 	int new_socketfd;
-
+	char* ip;
 public:
-	ConnectionThread(int, int);
+	ConnectionThread(int, int, char*);
 
 	int get_socket(){
 		return this->new_socketfd;
 	}
 
+	char* get_ip(){
+		return this->ip;
+	}
+
 };
 
-ConnectionThread::ConnectionThread(int port_number, int socket){
+// initializes ConnectionThread struct
+ConnectionThread::ConnectionThread(int port_number, int socket, char* ip_address){
 	port = port_number;
 	new_socketfd = socket;
+	ip = ip_address;
 }
-
-class Books{
-public:
-	string book_name;
-	int downloads_num;
-	vector<string> client_book_list; 	
-};
-
-class Statistic{
-public:
-	vector<Books> downloaded_books;
-	vector<string> client_list;
-	
-};
 
 /**
    method that shows error message and exit the program when an error occurs.
@@ -77,17 +75,41 @@ void error(const char *message){
 	exit(EXIT_FAILURE);
 }
 
-ifstream read_txt(){
-	ifstream i("lista.txt");
-	if(i.is_open()){
-		return i;
-	}
-}
+/**
+   method that sends book list to the client.
 
+   @param socket 
+*/
 void send_list(int socket){
 	char list[1024];
 	memcpy(&list, books_list.c_str(), sizeof(list));
 	write(socket, list, sizeof(list));	
+}
+
+/**
+   method that prints clients list whose had consulted book list. It uses a global variable
+*/
+void print_clients(){
+
+	if (client_list.size() == 0) std::cout << "[INFORMACIÓN] No hay clientes que hayan solicitado lista de libros" << std::endl;
+
+	else{
+		for (int i = 0; i < client_list.size(); ++i)
+			cout << client_list[i] << endl;
+	}  
+}
+
+/**
+   method that prints downloaded book list. It uses a global variable
+*/
+void print_books(){
+
+	if (downloaded_book_list.size() == 0) std::cout << "[INFORMACIÓN] No hay clientes que hayan solicitado lista de libros" << std::endl;
+
+	else{
+		for (int i = 0; i < downloaded_book_list.size(); ++i)
+			cout << downloaded_book_list[i] << endl;
+	}  
 }
 
 /**
@@ -109,6 +131,7 @@ void* handle_client(void *conn_thread){
 				break;
 			case 1:
 				send_list(new_socketfd);
+				client_list.push_back(ct->get_ip());
 				break;
 			case 2:
 				read(new_socketfd, &command_solicitud, sizeof(command_solicitud));
@@ -125,14 +148,20 @@ void* handle_client(void *conn_thread){
 	}
 }
 
+/**
+   method that prints commands server options.
+*/
 void server_help(){
   std::cout << "> LIBROS_DESCARGADOS: muestra una lista de libros que han sido descargados por el cliente.\n";
-  std::cout << "> CLIENTE_QUE_CONSULTARON: muestra lista de clientes que han descargado libro.\n";
+  std::cout << "> CLIENTES_QUE_CONSULTARON: muestra lista de clientes que han descargado libro.\n";
   std::cout << "> NUM_DESCARGASxLIBROxCLIENTE: muestra el numero de descargas de un libro por cliente.\n";
   std::cout << "> SALIR: termina la sesión\n";
   std::cout << "----------------------------------------------------------------------------------\n";
 }
 
+/**
+   method that executes command server options
+*/
 void *show_statistics(void *unused){
 	std::string command;
 	std:: string statistics_command;
@@ -150,8 +179,9 @@ void *show_statistics(void *unused){
 	    	printf("%s \n", "LIBROS_DESCARGADOS");
 	    }
 	   
-	    else if (command == "CLIENTE_QUE_CONSULTARON"){
-	  		printf("%s \n", "CLIENTE_QUE_CONSULTARON");
+	    else if (command == "CLIENTES_QUE_CONSULTARON"){
+	  		printf("%s \n", "Los clientes que han consultado la lista de libros son:");
+	  		print_clients();
 		}
 
 		else if (command == "NUM_DESCARGASxLIBROxCLIENTE"){
@@ -236,7 +266,7 @@ void server(int port_number){
 		// a new thread has to be created to handle the new connection
 		pthread_t conn_thread;
 
-		ConnectionThread *ct = new ConnectionThread(port_number, new_socketfd);
+		ConnectionThread *ct = new ConnectionThread(port_number, new_socketfd, inet_ntoa(client_addr.sin_addr));
 
 		rc_1 = pthread_create(&conn_thread, NULL, handle_client, ct);
 
@@ -246,6 +276,11 @@ void server(int port_number){
 
 }
 
+/**
+   method that reads txt file with availables books .
+
+   @param file
+*/
 int read_file(char* file){
 	// try to open book list text file
 	ifstream book_list_stream(file);
