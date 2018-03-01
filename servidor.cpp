@@ -93,7 +93,9 @@ void send_list(int socketfd){
 
 	// memcpy(&list, BOOKS_LIST, sizeof(list));
 	
-	write(socketfd, BOOKS_LIST, sizeof(BOOKS_LIST));
+	printf("LS:%d\n", sizeof(BOOKS_LIST));
+
+	write(socketfd, BOOKS_LIST.c_str(), sizeof(BOOKS_LIST));
 
 }
 

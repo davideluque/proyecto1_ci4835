@@ -106,6 +106,22 @@ void print_downloads_status(){
   }  
 }
 
+void print_books_list(int socketfd){
+  int command_num = 1;
+  int ret;
+  std::string buffer;
+
+  write(socketfd, &command_num, sizeof(command_num));
+
+  read(socketfd, buffer, sizeof(buffer));
+
+  std::cout << buffer << std::endl;
+  // while((ret = read(socketfd, buf, 32)) > 0){
+  //   printf("%s\n", buf);
+  // }
+
+}
+
 void handle_connection(int socketfd){
   std::string command;
   std::string command_solicitud;
@@ -124,18 +140,8 @@ void handle_connection(int socketfd){
     
     else if (command == "ESTADO_DESCARGAS") print_downloads_status();
    
-    else if (command == "LISTA_LIBROS"){
-      command_num = 1;
-      char book_list[1024];
+    else if (command == "LISTA_LIBROS") print_books_list(socketfd);
 
-      write(socketfd, &command_num, sizeof(command_num));
-
-      read(socketfd, &data_size, sizeof(data_size));
-
-      read(socketfd, book_list, ntohl(data_size));
-      
-      std::cout << book_list << std::endl;
-    }
     else if (command.find("SOLICITUD") == 0){
       std::cin >> command_solicitud;
       std::cout << command_solicitud << std::endl;
