@@ -24,6 +24,61 @@
 #include <string.h> // memcpy
 #include <unistd.h> // close
 #include <ctype.h> // toupper
+#include <vector> // vector
+
+class Download;
+
+std::vector <Download> downloads;
+
+class Server{
+  const char *ip_address;
+  int port;
+
+public:
+  Server(const char*, int);
+
+  const char* get_ip(){
+    return this->ip_address;
+  }
+
+  int get_port(){
+    return this->port;
+  }
+};
+
+Server::Server(const char* ip, int port_number){
+  ip_address = ip;
+  port = port_number;
+}
+
+class Download{
+  std::string book;
+  int progress;
+
+public:
+  Download(std::string, int);
+
+  std::string get_book(){
+    return this->book;
+  }
+
+  int get_progress(){
+    return this->progress;  
+  }
+
+  void update_progress(int new_progress){
+    this->progress = new_progress;
+  }
+
+  void print_download(){
+    std::cout << "[DESCARGA] " << this->book << " (" << this->progress << "%)" << std::endl;
+  }  
+};
+
+Download::Download(std::string book_name, int progress_percent){
+  book = book_name;
+  progress = progress_percent;
+}
 
 void error(const char *message, int socketfd){
    perror(message);
@@ -41,20 +96,33 @@ void help(){
   std::cout << "----------------------------------------------------------------------------------\n";
 }
 
+void print_downloads_status(){
+
+  if (downloads.size() == 0) std::cout << "[INFORMACIÓN] No hay descargas en curso" << std::endl;
+  
+  else{
+    for (int i = 0; i < downloads.size(); ++i)
+      downloads[i].print_download();
+  }  
+}
+
 void handle_connection(int socketfd){
   std::string command;
   std::string command_solicitud;
   int command_num, data_size;
 
-  std::cout << "Bienvenido" << std::endl;
-  std::cout << "Escriba AYUDA si desea conocer la lista de comandos disponibles" << std::endl;
+  std::cout << "[INFORMACIÓN] Bienvenido" << std::endl;
+  std::cout << 
+  "[INFORMACIÓN] Escriba AYUDA para conocer la lista de comandos disponibles" 
+  << std::endl;
 
    while(true){
-    std::cout << "Escriba el comando que desea ejecutar: ";
+    std::cout << "[INFORMACIÓN] Escriba el comando que desea ejecutar: ";
     std::cin >> command;
 
     if(command == "AYUDA") help();
-    else if (command == "ESTADO_DESCARGAS") write(socketfd, &command_num, sizeof(command));
+    
+    else if (command == "ESTADO_DESCARGAS") print_downloads_status();
    
     else if (command == "LISTA_LIBROS"){
       command_num = 1;
@@ -86,7 +154,7 @@ void handle_connection(int socketfd){
    }   
 }
 
-void cliente(char *ip, int port){
+int client(const char *ip, int port){
    int socketfd;
    struct sockaddr_in client_addr;
    struct hostent *server;
@@ -103,7 +171,7 @@ void cliente(char *ip, int port){
       error("Error al crear el socket", socketfd);
 
    /** 
-      client_addr structure must be set to use in bind method call
+      client_addr structure must be set to use it in bind method call
    */
 
    // set bytes of struct to zero
@@ -125,20 +193,87 @@ void cliente(char *ip, int port){
    memcpy((char *)&client_addr.sin_addr.s_addr, (char *)server->h_addr, sizeof(server->h_length));
 
    if(connect(socketfd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr_in)) < 0){
-      error("Host inalcanzable", socketfd);
+      std::cout << "Host inalcanzable " << ip << ":" << port << std::endl; 
+      return 0;
+      //error("Host inalcanzable", socketfd);
    }
 
    handle_connection(socketfd);
 }
 
+/**
+   attempts to connect to the previous specific list of available servers
+
+   @returns -1 in case of failure
+*/
+int connect_to_available_servers(std::vector<Server> servers){
+  int s = 0; // server num (0, 1, 2)
+  int server_port; // current server port
+  int connected; // 0 if connection failure
+  int attempts = 0; // num of attempts to connect to available servers
+  const char* server_ip; // current server ip
+
+  while(0 <= s <= 2){
+    server_ip = servers[s].get_ip();
+    server_port = servers[s].get_port();
+
+    connected = client(server_ip, server_port);
+
+    if (!connected && s < 2) s++;
+    
+    else{
+      attempts++;
+
+      if(attempts > 2){
+        std::cout << "Se llegó al número máximo de intentos." << std::endl;
+        std::cout << "Imposibilidad de servicio. Intente más tarde." << std::endl;
+        return -1;
+      }
+      std::cout << "No se pudo conectar a ninguno de los tres servidores." << std::endl;
+      std::cout << "Se intentará conectar desde el primero en 15 segundos." << std::endl;
+      std::cout << "Numero máximo de intentos es 3. Se ha intentado " << attempts;
+      if (attempts > 1) std::cout << " veces." << std::endl;
+      else std::cout << " vez." << std::endl;
+
+      sleep(15);
+      s = 0;
+      
+      continue;
+    }
+  }
+
+}
+
+/**
+   initializes the list of servers with given ips and ports.
+
+   @returns Vector of server objects
+*/
+std::vector<Server> init_servers_list(){
+  std::vector <Server> servers;
+
+  Server s1 = Server("127.0.0.1", 8081);
+  Server s2 = Server("127.0.0.1", 8082);
+  Server s3 = Server("127.0.0.1", 8083);
+
+  servers.push_back(s1);
+  servers.push_back(s2);
+  servers.push_back(s3);
+
+  return servers;
+}
+
 int main(int argc, char *argv[]){
 
-   if (argc <3){
-      std::cout << "usage: cliente <host> <puerto>\n";
-      exit(-1);
-   }
+  std::vector<Server> servers = init_servers_list();
 
-   cliente(argv[1], atoi(argv[2]));
-   
-   return 0;
+  // if no arguments where provided, try to connect to one of the servers
+  if (argc == 1) connect_to_available_servers(servers);
+
+  // server and port where specified. try to connect to these
+  else if (argc == 3) client(argv[1], atoi(argv[2]));
+
+  else std::cout << "usage: cliente [<host> <puerto>]\n";
+  
+  return -1;
 }
