@@ -26,6 +26,10 @@
 #include <ctype.h> // toupper
 #include <vector> // vector
 
+class Download;
+
+std::vector <Download> downloads;
+
 class Server{
   const char *ip_address;
   int port;
@@ -47,6 +51,35 @@ Server::Server(const char* ip, int port_number){
   port = port_number;
 }
 
+class Download{
+  std::string book;
+  int progress;
+
+public:
+  Download(std::string, int);
+
+  std::string get_book(){
+    return this->book;
+  }
+
+  int get_progress(){
+    return this->progress;  
+  }
+
+  void update_progress(int new_progress){
+    this->progress = new_progress;
+  }
+
+  void print_download(){
+    std::cout << "[DESCARGA] " << this->book << " (" << this->progress << "%)" << std::endl;
+  }  
+};
+
+Download::Download(std::string book_name, int progress_percent){
+  book = book_name;
+  progress = progress_percent;
+}
+
 void error(const char *message, int socketfd){
    perror(message);
    close(socketfd);
@@ -63,20 +96,33 @@ void help(){
   std::cout << "----------------------------------------------------------------------------------\n";
 }
 
+void print_downloads_status(){
+
+  if (downloads.size() == 0) std::cout << "[INFORMACIÓN] No hay descargas en curso" << std::endl;
+  
+  else{
+    for (int i = 0; i < downloads.size(); ++i)
+      downloads[i].print_download();
+  }  
+}
+
 void handle_connection(int socketfd){
   std::string command;
   std::string command_solicitud;
   int command_num, data_size;
 
-  std::cout << "Bienvenido" << std::endl;
-  std::cout << "Escriba AYUDA si desea conocer la lista de comandos disponibles" << std::endl;
+  std::cout << "[INFORMACIÓN] Bienvenido" << std::endl;
+  std::cout << 
+  "[INFORMACIÓN] Escriba AYUDA para conocer la lista de comandos disponibles" 
+  << std::endl;
 
    while(true){
-    std::cout << "Escriba el comando que desea ejecutar: ";
+    std::cout << "[INFORMACIÓN] Escriba el comando que desea ejecutar: ";
     std::cin >> command;
 
     if(command == "AYUDA") help();
-    else if (command == "ESTADO_DESCARGAS") write(socketfd, &command_num, sizeof(command));
+    
+    else if (command == "ESTADO_DESCARGAS") print_downloads_status();
    
     else if (command == "LISTA_LIBROS"){
       command_num = 1;
@@ -156,7 +202,9 @@ int client(const char *ip, int port){
 }
 
 /**
+   attempts to connect to the previous specific list of available servers
 
+   @returns -1 in case of failure
 */
 int connect_to_available_servers(std::vector<Server> servers){
   int s = 0; // server num (0, 1, 2)
@@ -178,6 +226,7 @@ int connect_to_available_servers(std::vector<Server> servers){
 
       if(attempts > 2){
         std::cout << "Se llegó al número máximo de intentos." << std::endl;
+        std::cout << "Imposibilidad de servicio. Intente más tarde." << std::endl;
         return -1;
       }
       std::cout << "No se pudo conectar a ninguno de los tres servidores." << std::endl;
@@ -194,7 +243,6 @@ int connect_to_available_servers(std::vector<Server> servers){
   }
 
 }
-
 
 /**
    initializes the list of servers with given ips and ports.
