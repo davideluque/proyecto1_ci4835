@@ -25,6 +25,7 @@
 #include <string.h> // memset
 #include <vector>
 #include <fstream> // ifstream
+
 //#include "json.hpp" // json
 
 using namespace std;
@@ -77,17 +78,62 @@ void error(const char *message){
 	exit(EXIT_FAILURE);
 }
 
-ifstream read_txt(){
-	ifstream i("lista.txt");
-	if(i.is_open()){
-		return i;
-	}
-}
-
 void send_list(int socket){
 	char list[1024];
 	memcpy(&list, books_list.c_str(), sizeof(list));
 	write(socket, list, sizeof(list));	
+}
+
+void send_book(int socket, std::string book){
+	
+	// open file and go through it
+	FILE* fp = fopen(book.c_str(), "r");
+	fseek(fp, 0, SEEK_END);
+	
+	// get file size
+	long file_size = ftell(fp);
+	char got_file_size[1024];
+	char book_name[1024];
+	
+	// send file size
+	memcpy(&got_file_size, std::to_string(file_size).c_str(), 1024);
+	write(socket, got_file_size, 1024);
+
+	// go back to the beginning of the book
+	rewind(fp);
+	
+	// send file name
+	memcpy(&book_name, book.c_str(), sizeof(book_name));
+	write(socket, book_name, sizeof(book_name));
+
+	// start control size check
+	long size_check = 0;
+	char* mfcc;
+
+	// file can't be sent in only one a TCP packet 
+	if (file_size > 1499){
+		mfcc = (char *) malloc(1500);
+
+		// still data to send. read from file and set that data.
+		while(size_check < file_size){
+			int read = fread(mfcc, 1500, sizeof(char), fp);
+			int sent = write(socket, mfcc, read);
+			size_check += sent;
+		}
+	}
+
+	// file can be send in one tcp packet
+	else{
+		mfcc = (char *) malloc(file_size + 1);
+		fread(mfcc, file_size, sizeof(char), fp);
+		write(socket, mfcc, file_size);
+	}
+
+	// file has been sent.
+	fclose(fp);
+	free(mfcc);
+	
+	std::cout << "[INFORMACIÓN] El archivo " << book << " ha sido enviado." << std::endl;
 }
 
 /**
@@ -100,6 +146,7 @@ void* handle_client(void *conn_thread){
 	ConnectionThread *ct = (ConnectionThread *) conn_thread;
 	int new_socketfd = ct->get_socket();
 	int data_len, command, command_solicitud;
+	string book;
 	
 	while((data_len = read(new_socketfd, &command, sizeof(command))) > 0){
 			
@@ -111,11 +158,10 @@ void* handle_client(void *conn_thread){
 				send_list(new_socketfd);
 				break;
 			case 2:
-				read(new_socketfd, &command_solicitud, sizeof(command_solicitud));
-				printf("%d\n", command_solicitud);
+				read(new_socketfd, &book, sizeof(book));
+				send_book(new_socketfd, book);
 				break;
 			case 3:
-
 				break;
 			case 4:
 				close(new_socketfd);
@@ -212,7 +258,7 @@ void server(int port_number){
 	if(listen(socketfd, 5) == -1)
 		error("Error al escuchar conexiones entrantes.");
 
-	std::cout << "Servidor corriendo en el puerto " << port_number << "\n";
+	std::cout << "Servidor corriendo en el puerto " << port_number << std::endl;
 	
 	/**
 	    Server should create a thread to handle either incomming connections or

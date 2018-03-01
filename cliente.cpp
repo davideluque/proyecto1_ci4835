@@ -192,9 +192,68 @@ void print_books_list(){
   	request_book_list(servers[i].get_ip(), servers[i].get_port());
 }
 
+void handle_download(int socket){
+
+	char got_file_size[1024];
+	char filename[1024];
+
+	// read size of the file
+	read(socket, got_file_size, 1024);
+	long file_size = atoi(got_file_size);
+	long size_check = 0;
+
+	// read name of the file
+	read(socket, filename, sizeof(filename));
+
+	FILE *fp = fopen(filename, "w");
+
+	char* mfcc;
+	
+	// file cant be received in one TCP packet
+	if(file_size > 1499){
+		
+		mfcc = (char*)malloc(1500);
+		
+		// there is still data to receive. get it and flush in the file
+		while(size_check < file_size){
+			int received = read(socket, mfcc, 1500);
+			size_check += received;
+			fwrite(mfcc, 1, received, fp);
+			fflush(fp);
+		}
+	}
+	
+	else{
+		mfcc = (char*)malloc(file_size + 1);
+		int received = read(socket, mfcc, file_size);
+		fwrite(mfcc, 1, received, fp);
+		fflush(fp);
+	}
+	
+	fclose(fp);
+	free(mfcc);
+
+	std::cout << "Nuevo archivo " << filename << " recibido." << std::endl;
+
+}
+
+void request_book(int socket, std::string book, int command){
+	int command_num = 2;
+	int rc;
+	pthread_t download_thread;
+
+	write(socket, &command_num, sizeof(command));
+
+	write(socket, &book, sizeof(command));
+
+	// CREATE THREAD TO HANDLE DOWNLOAD AND GO BACK.
+	//rc = pthread_create(&download_thread, NULL, handle_download, NULL);
+	handle_download(socket);
+}
+
 void handle_connection(int socketfd){
   std::string command;
-  std::string command_solicitud;
+  std::string book;
   int command_num, data_size;
 
   std::cout << "[INFORMACIÓN] Bienvenido" << std::endl;
@@ -213,18 +272,19 @@ void handle_connection(int socketfd){
     else if (command == "LISTA_LIBROS") print_books_list();
 
     else if (command.find("SOLICITUD") == 0){
-      std::cin >> command_solicitud;
-      std::cout << command_solicitud << std::endl;
-      write(socketfd, &command_num, sizeof(command));
-      write(socketfd, &command_solicitud, sizeof(command));
-     }
+      std::cin >> book;
+      request_book(socketfd, book, 2);
+    }
+
     else if (command == "LIBROS_DESCARGADOSxSERVIDOR") write(socketfd, &command_num, sizeof(command));
+
     else if (command == "SALIR"){
       command_num = 4;
       write(socketfd, &command_num, sizeof(command_num));
       close(socketfd);
       exit(1);
     }
+ 
     else std::cout << "Comando inválido. Ejecute AYUDA si desea conocer la lista de comandos.\n";
 
    }   
